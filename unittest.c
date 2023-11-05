@@ -35,7 +35,7 @@ int test_simple_read(int fd)
 
 int test_simple_write(int fd)
 {
-    char* stringToSend = "This is a string to send";;
+    char *stringToSend = "This is a string to send";
     int ret;
 
     ret = write(fd, stringToSend, strlen(stringToSend));
@@ -60,7 +60,7 @@ int test_empty_read(int fd)
         perror("Failed to read the message from the device.");
         return errno;
     }
-    printf("%s", receive);
+
     // Nothing should have been read
     if (strlen(receive) > 0)
     {
@@ -87,7 +87,9 @@ int test_overwrite(int fd)
         perror("Failed to write the message to the device.");
         return errno;
     }
-    else if (ret != 1024)
+
+    // Despite trying to write 1124, only 1024 should have been successfully written.
+    if (ret != 1024)
     {
         return 1;
     }
@@ -97,10 +99,11 @@ int test_overwrite(int fd)
 
 int test_write_and_read(int fd)
 {
-    char* stringToSend = "This is a string to send";
+    char *stringToSend = "This is a string to send";
     char receive[256];
     int ret;
 
+    // Write to the buffer
     ret = write(fd, stringToSend, strlen(stringToSend));
     if (ret < 0)
     {
@@ -108,6 +111,7 @@ int test_write_and_read(int fd)
         return errno;
     }
 
+    // Immediately read from the buffer
     ret = read(fd, receive, 256);
     if (ret < 0)
     {
@@ -115,6 +119,7 @@ int test_write_and_read(int fd)
         return errno;
     }
 
+    // The read in value should be identical to what was written
     if (strcmp(receive, stringToSend))
     {
         return 1;
@@ -152,7 +157,7 @@ int main(int argc, char *argv[])
     }
     char *devicepath = argv[1];
 
-    int fd = open(devicepath, O_RDWR); // Open the device with read/write access
+    int fd = open(devicepath, O_RDWR);
     if (fd < 0)
     {
         perror("Failed to open the device...");
