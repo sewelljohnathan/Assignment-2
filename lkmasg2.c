@@ -34,6 +34,7 @@ static ssize_t read(struct file *, char *, size_t, loff_t *);
 static ssize_t write(struct file *, const char *, size_t, loff_t *);
 
 static char BUFFER[1024];
+static char tmpBuffer[1024];
 static int BUF_START = 0;
 static int BUF_LEN = 0; // this is the length of used buffer space, NOT 1024
 
@@ -127,20 +128,27 @@ static int close(struct inode *inodep, struct file *filep)
  */
 static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
-	for (int i = 0; i < len; i++)
+	int i;
+	for (i = 0; i < len - 1; i++)
 	{
 		// buffer is empty
 		if (BUF_LEN == 0)
 		{
-			return i;
+			break;
 		}
 
 		// start reading at the start
-		buffer[i] = BUFFER[BUF_START];
+		tmpBuffer[i] = BUFFER[BUF_START];
 		
-		// Increase buffer length
+		// Decrease buffer length and move start up
 		BUF_LEN--;
 		BUF_START = (BUF_START + 1) % 1024;
+	}
+	tmpBuffer[i] = '\0'; // terminate with null character
+
+	if (copy_to_user(buffer, tmpBuffer, i + 1))
+	{
+		return -1;
 	}
 	printk(KERN_INFO "read stub");
 	return 0;
@@ -152,6 +160,12 @@ static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset
 static ssize_t write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
 	int BUF_END;
+	len = len <= 1024? len : 1024;
+	if (copy_from_user(tmpBuffer, buffer, len))
+	{
+		return -1;
+	}
+
 	for (int i = 0; i < len; i++)
 	{
 		// buffer is full
@@ -162,7 +176,7 @@ static ssize_t write(struct file *filep, const char *buffer, size_t len, loff_t 
 
 		// start writing at the end (i.e. next unused index)
 		BUF_END = (BUF_START + BUF_LEN) % 1024;
-		BUFFER[BUF_END] = buffer[i];
+		BUFFER[BUF_END] = tmpBuffer[i];
 
 		// Increase buffer length
 		BUF_LEN++;
