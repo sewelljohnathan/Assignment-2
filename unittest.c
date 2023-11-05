@@ -6,7 +6,19 @@
 #include <string.h>
 #include <unistd.h>
 
-int test_empty_read(int fd)
+int clearBuffer(int fd)
+{
+    char dump[1024];
+    if (read(fd, dump, 1024) < 0)
+    {
+        perror("Failed to read the message from the device.");
+        return errno;
+    }
+
+    return 0;
+}
+
+int test_simple_read(int fd)
 {
     char receive[256];
     int ret;
@@ -17,7 +29,40 @@ int test_empty_read(int fd)
         perror("Failed to read the message from the device.");
         return errno;
     }
-    if (strlen(receive))
+
+    return 0;
+}
+
+int test_simple_write(int fd)
+{
+    char* stringToSend = "This is a string to send";;
+    int ret;
+
+    ret = write(fd, stringToSend, strlen(stringToSend));
+    if (ret < 0)
+    {
+        perror("Failed to write the message to the device.");
+        return errno;
+    }
+
+    return 0;
+}
+
+int test_empty_read(int fd)
+{
+    char receive[1024];
+    int ret;
+
+    // Read in nothing
+    ret = read(fd, receive, 1024);
+    if (ret < 0)
+    {
+        perror("Failed to read the message from the device.");
+        return errno;
+    }
+    printf("%s", receive);
+    // Nothing should have been read
+    if (strlen(receive) > 0)
     {
         return 1;
     }
@@ -27,14 +72,35 @@ int test_empty_read(int fd)
 
 int test_overwrite(int fd)
 {
-    char stringToSend[1024];
+    char stringToSend[1024 + 100];
     int ret;
 
-    // Send max number of x's
-    for (int i = 0; i < 1024; i++)
+    // Fill the buffer with x's
+    for (int i = 0; i < 1024 + 100; i++)
     {
         stringToSend[i] = 'x';
     }
+
+    ret = write(fd, stringToSend, strlen(stringToSend));
+    if (ret < 0)
+    {
+        perror("Failed to write the message to the device.");
+        return errno;
+    }
+    else if (ret != 1024)
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+int test_write_and_read(int fd)
+{
+    char* stringToSend = "This is a string to send";
+    char receive[256];
+    int ret;
+
     ret = write(fd, stringToSend, strlen(stringToSend));
     if (ret < 0)
     {
@@ -42,42 +108,31 @@ int test_overwrite(int fd)
         return errno;
     }
 
-    // Send max number of y's
-    for (int i = 0; i < 1024; i++)
-    {
-        stringToSend[i] = 'y';
-    }
-    ret = write(fd, stringToSend, strlen(stringToSend));
-    if (ret < 0)
-    {
-        perror("Failed to write the message to the device.");
-        return errno;
-    }
-
-    // Read
-    char receive[1024];
-    ret = read(fd, receive, 1024); // Read the response from the LKM
+    ret = read(fd, receive, 256);
     if (ret < 0)
     {
         perror("Failed to read the message from the device.");
         return errno;
     }
-    for (int i = 0; i < 1024 - 1; i++)
-    {
-        if (receive[i] != 'x')
-        {
-            return 1;
-        }
-    }
-    if (receive[1024 - 1] != '\0')
+
+    if (strcmp(receive, stringToSend))
     {
         return 1;
     }
+
+    return 0;
 }
 
 int test(char *description, int (*func)(int), int fd)
 {
-    printf("%-30s: ", description);
+
+    if (clearBuffer(fd))
+    {
+        printf("Failed to Clear Buffer\n");
+        return 1;
+    }
+
+    printf("%-40s: ", description);
     if ((*func)(fd))
     {
         printf("Failed\n");
@@ -104,8 +159,13 @@ int main(int argc, char *argv[])
         return errno;
     }
 
-    test("Test reading from empty buffer", test_empty_read, fd);
-    test("Overwriting buffer", test_empty_read, fd);
+    test("Reading gives no error", test_simple_read, fd);
+    test("Writing gives no error", test_simple_write, fd);
+
+    test("Read gets the same value that is written", test_write_and_read, fd);
+
+    test("Reading empty buffer", test_empty_read, fd);
+    test("Overwriting buffer", test_overwrite, fd);
 
     return 0;
 }
