@@ -129,7 +129,7 @@ static int close(struct inode *inodep, struct file *filep)
 static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
 	int i;
-	for (i = 0; i < len - 1; i++)
+	for (i = 0; i < len; i++)
 	{
 		// buffer is empty
 		if (BUF_LEN == 0)
@@ -144,7 +144,7 @@ static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset
 		BUF_LEN--;
 		BUF_START = (BUF_START + 1) % 1024;
 	}
-	tmpBuffer[i] = '\0'; // terminate with null character
+	tmpBuffer[i] = '\0';
 
 	if (copy_to_user(buffer, tmpBuffer, i + 1))
 	{
