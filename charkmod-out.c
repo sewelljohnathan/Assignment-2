@@ -9,12 +9,13 @@
 #include <linux/kernel.h>	  // Kernel header for convenient functions.
 #include <linux/fs.h>		  // File-system support.
 #include <linux/uaccess.h>	  // User access copy function support.
-#define DEVICE_NAME "pa3_writer" // Device name.
-#define CLASS_NAME "char"	  ///< The device class -- this is a character device driver
+#include <linux/mutex.h>
+#define DEVICE_NAME "charkmod-out" // Device name.
+#define CLASS_NAME "char_out"	  ///< The device class -- this is a character device driver
 
 MODULE_LICENSE("GPL");						 ///< The license type -- this affects available functionality
 MODULE_AUTHOR("Johnathan Sewell");					 ///< The author -- visible when you use modinfo
-MODULE_DESCRIPTION("lkmasg2 Kernel Module");           ///< The description -- see modinfo
+MODULE_DESCRIPTION("lkmasg2 Kernel Module"); ///< The description -- see modinfo
 MODULE_VERSION("0.1");						 ///< A version number to inform users
 
 /**
@@ -30,12 +31,18 @@ static struct device *lkmasg2Device = NULL; ///< The device-driver device struct
  */
 static int open(struct inode *, struct file *);
 static int close(struct inode *, struct file *);
-static ssize_t write(struct file *, const char *, size_t, loff_t *);
+static ssize_t read(struct file *, char *, size_t, loff_t *);
 
-static char BUFFER[1024];
 static char tmpBuffer[1024];
-static int BUF_START = 0;
-static int BUF_LEN = 0; // this is the length of used buffer space, NOT 1024
+
+typedef struct shared_memory {
+    struct mutex lock;
+    char BUFFER[1024];
+	int BUF_START;
+	int BUF_LEN; // this is the length of used buffer space, NOT 1024
+} shared_memory;
+
+extern shared_memory mem;
 
 /**
  * File operations structure and the functions it points to.
@@ -45,7 +52,7 @@ static struct file_operations fops =
 		.owner = THIS_MODULE,
 		.open = open,
 		.release = close,
-		.write = write,
+		.read = read,
 };
 
 /**
@@ -53,16 +60,16 @@ static struct file_operations fops =
  */
 int init_module(void)
 {
-	printk(KERN_INFO "lkmasg2: installing module.\n");
+	printk(KERN_INFO "charkmod-out: installing module.\n");
 
 	// Allocate a major number for the device.
 	major_number = register_chrdev(0, DEVICE_NAME, &fops);
 	if (major_number < 0)
 	{
-		printk(KERN_ALERT "lkmasg2 could not register number.\n");
+		printk(KERN_ALERT "charkmod-out could not register number.\n");
 		return major_number;
 	}
-	printk(KERN_INFO "lkmasg2: registered correctly with major number %d\n", major_number);
+	printk(KERN_INFO "charkmod-out: registered correctly with major number %d\n", major_number);
 
 	// Register the device class
 	lkmasg2Class = class_create(THIS_MODULE, CLASS_NAME);
@@ -72,7 +79,7 @@ int init_module(void)
 		printk(KERN_ALERT "Failed to register device class\n");
 		return PTR_ERR(lkmasg2Class); // Correct way to return an error on a pointer
 	}
-	printk(KERN_INFO "lkmasg2: device class registered correctly\n");
+	printk(KERN_INFO "charkmod-out: device class registered correctly\n");
 
 	// Register the device driver
 	lkmasg2Device = device_create(lkmasg2Class, NULL, MKDEV(major_number, 0), NULL, DEVICE_NAME);
@@ -83,7 +90,7 @@ int init_module(void)
 		printk(KERN_ALERT "Failed to create the device\n");
 		return PTR_ERR(lkmasg2Device);
 	}
-	printk(KERN_INFO "lkmasg2 Writer module successfully installed\n"); // Made it! device was initialized
+	printk(KERN_INFO "charkmod-out Reader module successfully installed\n"); // Made it! device was initialized
 
 	return 0;
 }
@@ -93,12 +100,12 @@ int init_module(void)
  */
 void cleanup_module(void)
 {
-	printk(KERN_INFO "lkmasg2: removing module.\n");
+	printk(KERN_INFO "charkmod-out: removing module.\n");
 	device_destroy(lkmasg2Class, MKDEV(major_number, 0)); // remove the device
 	class_unregister(lkmasg2Class);						  // unregister the device class
 	class_destroy(lkmasg2Class);						  // remove the device class
 	unregister_chrdev(major_number, DEVICE_NAME);		  // unregister the major number
-	printk(KERN_INFO "lkmasg2: Goodbye from the LKM!\n");
+	printk(KERN_INFO "charkmod-out: Goodbye from the LKM!\n");
 	unregister_chrdev(major_number, DEVICE_NAME);
 	return;
 }
@@ -108,7 +115,7 @@ void cleanup_module(void)
  */
 static int open(struct inode *inodep, struct file *filep)
 {
-	printk(KERN_INFO "lkmasg2: device opened.\n");
+	printk(KERN_INFO "charkmod-out: device opened.\n");
 	return 0;
 }
 
@@ -117,40 +124,48 @@ static int open(struct inode *inodep, struct file *filep)
  */
 static int close(struct inode *inodep, struct file *filep)
 {
-	printk(KERN_INFO "lkmasg2: device closed.\n");
+	printk(KERN_INFO "charkmod-out: device closed.\n");
 	return 0;
 }
 
 /*
- * Writes to the device
+ * Reads from device, displays in userspace, and deletes the read data
  */
-static ssize_t write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
+static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
-    printk(KERN_INFO "lkmasg2 Writer - Entered write()");
+	int i;
 
-	int BUF_END;
-	len = len <= 1024? len : 1024;
-	if (copy_from_user(tmpBuffer, buffer, len))
+    printk(KERN_INFO "charkmod-out Reader - Entered read()");
+    mutex_lock(&mem.lock); 
+	printk(KERN_INFO "charkmod-out Reader - Acquired the lock.");
+
+	if (mem.BUF_LEN == 0)
 	{
-		return -1;
+		printk(KERN_INFO "charkmod-out Reader - Buffer is empty, unable to read");
 	}
 
-	for (int i = 0; i < len; i++)
+	for (i = 0; i < len; i++)
 	{
-		// buffer is full
-		if (BUF_LEN == 1024)
+		// buffer is empty
+		if (mem.BUF_LEN == 0)
 		{
-			return i;
+			break;
 		}
 
-		// start writing at the end (i.e. next unused index)
-		BUF_END = (BUF_START + BUF_LEN) % 1024;
-		BUFFER[BUF_END] = tmpBuffer[i];
-
-		// Increase buffer length
-		BUF_LEN++;
+		// start reading at the start
+		tmpBuffer[i] = mem.BUFFER[mem.BUF_START];
+		
+		// Decrease buffer length and move start up
+		mem.BUF_LEN--;
+		mem.BUF_START = (mem.BUF_START + 1) % 1024;
 	}
+	tmpBuffer[i] = '\0';
 
-	printk(KERN_INFO "write stub");
-	return len;
+
+	if(copy_to_user(buffer, tmpBuffer, i + 1));
+
+	printk(KERN_INFO "charkmod-out Reader - Read %d bytes (%s) from the buffer.", i, tmpBuffer);
+    mutex_unlock(&mem.lock);
+	printk(KERN_INFO "charkmod-out Reader - Exiting read() function");
+	return 0;
 }
