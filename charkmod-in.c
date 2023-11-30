@@ -70,7 +70,7 @@ int init_module(void)
 	major_number = register_chrdev(0, DEVICE_NAME, &fops);
 	if (major_number < 0)
 	{
-		printk(KERN_ALERT "charkmod-in could not register number.\n");
+		printk(KERN_ALERT "charkmod-in: could not register number.\n");
 		return major_number;
 	}
 	printk(KERN_INFO "charkmod-in: registered correctly with major number %d\n", major_number);
@@ -94,7 +94,7 @@ int init_module(void)
 		printk(KERN_ALERT "Failed to create the device\n");
 		return PTR_ERR(lkmasg2Device);
 	}
-	printk(KERN_INFO "charkmod-in Writer module successfully installed\n"); // Made it! device was initialized
+	printk(KERN_INFO "charkmod-in: Writer module successfully installed\n"); // Made it! device was initialized
 	return 0;
 }
 
@@ -108,7 +108,7 @@ void cleanup_module(void)
 	class_unregister(lkmasg2Class);						  // unregister the device class
 	class_destroy(lkmasg2Class);						  // remove the device class
 	unregister_chrdev(major_number, DEVICE_NAME);		  // unregister the major number
-	printk(KERN_INFO "charkmod-in: Goodbye from the LKM!\n");
+	printk(KERN_INFO "charkmod-in: Goodbye from the charkmod-in!\n");
 	unregister_chrdev(major_number, DEVICE_NAME);
 	return;
 }
@@ -139,14 +139,14 @@ static ssize_t write(struct file *filep, const char *buffer, size_t len, loff_t 
 	int i;
 	int BUF_END;
 
-    printk(KERN_INFO "charkmod-in Writer - Entered write()");
+    printk(KERN_INFO "charkmod-in: Writer - Entered write()");
     mutex_lock(&mem.lock); 
-	printk(KERN_INFO "charkmod-in Writer - Acquired the lock.");
+	printk(KERN_INFO "charkmod-in: Writer - Acquired the lock.");
 	
 	len = len <= 1024? len : 1024;
 	if (copy_from_user(tmpBuffer, buffer, len))
 	{
-		printk(KERN_INFO "charkmod-in Writer - Buffer is full, unable to write.");
+		printk(KERN_INFO "charkmod-in: Writer - Buffer is full, unable to write.");
 		return -1;
 	}
 
@@ -166,8 +166,8 @@ static ssize_t write(struct file *filep, const char *buffer, size_t len, loff_t 
 		mem.BUF_LEN++;
 	}
 
-	printk(KERN_INFO "charkmod-in Writer - Wrote %d bytes (%s) to the buffer.", i, tmpBuffer);
+	printk(KERN_INFO "charkmod-in: Writer - Wrote %d bytes (%s) to the buffer.", i, tmpBuffer);
     mutex_unlock(&mem.lock);
-	printk(KERN_INFO "charkmod-in Writer - Exiting write() function");
+	printk(KERN_INFO "charkmod-in: Writer - Exiting write() function");
 	return i;
 }

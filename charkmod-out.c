@@ -66,7 +66,7 @@ int init_module(void)
 	major_number = register_chrdev(0, DEVICE_NAME, &fops);
 	if (major_number < 0)
 	{
-		printk(KERN_ALERT "charkmod-out could not register number.\n");
+		printk(KERN_ALERT "charkmod-out: could not register number.\n");
 		return major_number;
 	}
 	printk(KERN_INFO "charkmod-out: registered correctly with major number %d\n", major_number);
@@ -90,7 +90,7 @@ int init_module(void)
 		printk(KERN_ALERT "Failed to create the device\n");
 		return PTR_ERR(lkmasg2Device);
 	}
-	printk(KERN_INFO "charkmod-out Reader module successfully installed\n"); // Made it! device was initialized
+	printk(KERN_INFO "charkmod-out: Reader module successfully installed\n"); // Made it! device was initialized
 
 	return 0;
 }
@@ -105,7 +105,7 @@ void cleanup_module(void)
 	class_unregister(lkmasg2Class);						  // unregister the device class
 	class_destroy(lkmasg2Class);						  // remove the device class
 	unregister_chrdev(major_number, DEVICE_NAME);		  // unregister the major number
-	printk(KERN_INFO "charkmod-out: Goodbye from the LKM!\n");
+	printk(KERN_INFO "charkmod-out: Goodbye from the charkmod-out!\n");
 	unregister_chrdev(major_number, DEVICE_NAME);
 	return;
 }
@@ -135,13 +135,13 @@ static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset
 {
 	int i;
 
-    printk(KERN_INFO "charkmod-out Reader - Entered read()");
+    printk(KERN_INFO "charkmod-out: Reader - Entered read()");
     mutex_lock(&mem.lock); 
-	printk(KERN_INFO "charkmod-out Reader - Acquired the lock.");
+	printk(KERN_INFO "charkmod-out: Reader - Acquired the lock.");
 
 	if (mem.BUF_LEN == 0)
 	{
-		printk(KERN_INFO "charkmod-out Reader - Buffer is empty, unable to read");
+		printk(KERN_INFO "charkmod-out: Reader - Buffer is empty, unable to read");
 	}
 
 	for (i = 0; i < len; i++)
@@ -149,6 +149,7 @@ static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset
 		// buffer is empty
 		if (mem.BUF_LEN == 0)
 		{
+			printk(KERN_INFO "charkmod-out: Reader - Buffer is now empty, unable to read");
 			break;
 		}
 
@@ -164,8 +165,8 @@ static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset
 
 	if(copy_to_user(buffer, tmpBuffer, i + 1));
 
-	printk(KERN_INFO "charkmod-out Reader - Read %d bytes (%s) from the buffer.", i, tmpBuffer);
+	printk(KERN_INFO "charkmod-out: Reader - Read %d bytes (%s) from the buffer.", i, tmpBuffer);
     mutex_unlock(&mem.lock);
-	printk(KERN_INFO "charkmod-out Reader - Exiting read() function");
-	return 0;
+	printk(KERN_INFO "charkmod-out: Reader - Exiting read() function");
+	return i;
 }
