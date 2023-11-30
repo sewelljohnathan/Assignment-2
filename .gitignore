@@ -6,8 +6,4 @@
 *.o
 Module.symvers
 modules.order
-test
-unittest
-dev.c
-a.out
 .vscode/
