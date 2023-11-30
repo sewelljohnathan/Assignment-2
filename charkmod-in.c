@@ -138,16 +138,22 @@ static ssize_t write(struct file *filep, const char *buffer, size_t len, loff_t 
 {
 	int i;
 	int BUF_END;
+	len = len <= 1024? len : 1024;
+	
+	copy_from_user(tmpBuffer, buffer, len);
 
     printk(KERN_INFO "charkmod-in: Writer - Entered write()");
     mutex_lock(&mem.lock); 
 	printk(KERN_INFO "charkmod-in: Writer - Acquired the lock.");
 	
-	len = len <= 1024? len : 1024;
-	if (copy_from_user(tmpBuffer, buffer, len))
+	if (mem.BUF_LEN == 1024)
 	{
 		printk(KERN_INFO "charkmod-in: Writer - Buffer is full, unable to write.");
-		return -1;
+	}
+
+	if (len + mem.BUF_LEN > 1024)
+	{
+		printk(KERN_INFO "charkmod-in: Writer - Buffer has %d bytes remaining, attempting to write %d, truncating input", 1024 - mem.BUF_LEN, len);
 	}
 
 	for (i = 0; i < len; i++)
@@ -167,7 +173,9 @@ static ssize_t write(struct file *filep, const char *buffer, size_t len, loff_t 
 	}
 
 	printk(KERN_INFO "charkmod-in: Writer - Wrote %d bytes (%s) to the buffer.", i, tmpBuffer);
+	printk(KERN_INFO "charkmod-in: Writer - Releasing the lock.");
     mutex_unlock(&mem.lock);
 	printk(KERN_INFO "charkmod-in: Writer - Exiting write() function");
+
 	return i;
 }

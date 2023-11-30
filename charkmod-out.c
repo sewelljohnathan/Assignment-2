@@ -144,6 +144,11 @@ static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset
 		printk(KERN_INFO "charkmod-out: Reader - Buffer is empty, unable to read");
 	}
 
+	if (len > mem.BUF_LEN)
+	{
+		printk(KERN_INFO "charkmod-out: Reader - Buffer has %d bytes of content, requested %d.", mem.BUF_LEN, len);
+	}
+
 	for (i = 0; i < len; i++)
 	{
 		// buffer is empty
@@ -160,13 +165,16 @@ static ssize_t read(struct file *filep, char *buffer, size_t len, loff_t *offset
 		mem.BUF_LEN--;
 		mem.BUF_START = (mem.BUF_START + 1) % 1024;
 	}
-	tmpBuffer[i] = '\0';
-
-
-	if(copy_to_user(buffer, tmpBuffer, i + 1));
-
-	printk(KERN_INFO "charkmod-out: Reader - Read %d bytes (%s) from the buffer.", i, tmpBuffer);
+	
+	printk(KERN_INFO "charkmod-out: Reader - Releasing the lock.");
     mutex_unlock(&mem.lock);
+
+	tmpBuffer[i] = '\0';
+	copy_to_user(buffer, tmpBuffer, i + 1);
+	printk(KERN_INFO "charkmod-out: Reader - Read %d bytes (%s) from the buffer.", i, tmpBuffer);
+
+
 	printk(KERN_INFO "charkmod-out: Reader - Exiting read() function");
+
 	return i;
 }
