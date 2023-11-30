@@ -48,10 +48,10 @@ def main():
 
     print("Done!")
 
-    #device = os.open("/dev/charkmod-out", os.O_RDONLY)
-    #remainingContents = os.read(device, 1024)
-    #os.close(device)
-    #print(f"Remaining contents: [{remainingContents}]")
+    device = os.open("/dev/charkmod-out", os.O_RDONLY)
+    remainingContents = os.read(device, 1024)
+    os.close(device)
+    print(f"Remaining contents: [{remainingContents}]")
 
 if __name__ == "__main__":
     main()
